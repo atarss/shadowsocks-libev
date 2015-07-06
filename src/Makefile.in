@@ -674,8 +674,8 @@ libshadowsocks_la-local.lo: local.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libshadowsocks_la_CFLAGS) $(CFLAGS) -c -o libshadowsocks_la-local.lo `test -f 'local.c' || echo '$(srcdir)/'`local.c
 
-libshadowsocks_la-server.lo: local.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libshadowsocks_la_CFLAGS) $(CFLAGS) -MT libshadowsocks_la-server.lo -MD -MP -MF $(DEPDIR)/libshadowsocks_la-server.Tpo -c -o libshadowsocks_la-server.lo `test -f 'server.c' || echo '$(srcdir)/'`local.c
+libshadowsocks_la-server.lo: server.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libshadowsocks_la_CFLAGS) $(CFLAGS) -MT libshadowsocks_la-server.lo -MD -MP -MF $(DEPDIR)/libshadowsocks_la-server.Tpo -c -o libshadowsocks_la-server.lo `test -f 'server.c' || echo '$(srcdir)/'`server.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libshadowsocks_la-server.Tpo $(DEPDIR)/libshadowsocks_la-server.Plo
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='server.c' object='libshadowsocks_la-server.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
