@@ -79,6 +79,11 @@
 #define SSMAXCONN 1024
 #endif
 
+#define DEFAULT_MAIN_DNS "8.8.8.8"
+#include <pthread.h>
+#include "shadowsocks.h"
+// added by andy
+
 static void signal_cb(EV_P_ ev_signal *w, int revents);
 static void accept_cb(EV_P_ ev_io *w, int revents);
 static void server_send_cb(EV_P_ ev_io *w, int revents);
@@ -1357,6 +1362,176 @@ int main(int argc, char **argv)
             ev_io_stop(loop, &listen_ctx->io);
             close(listen_ctx->fd);
         }
+    }
+
+    if (mode != UDP_ONLY) {
+        free_connections(loop);
+    }
+
+    if (mode != TCP_ONLY) {
+        free_udprelay();
+    }
+
+    resolv_shutdown(loop);
+
+#ifdef __MINGW32__
+    winsock_cleanup();
+#endif
+
+    ev_signal_stop(EV_DEFAULT, &sigint_watcher);
+    ev_signal_stop(EV_DEFAULT, &sigterm_watcher);
+
+    return 0;
+}
+
+int start_ss_remote_server(profile_t profile) {
+
+    // int i, c;
+    // int pid_flags = 0;
+    // char *user = NULL;
+    char *password = profile.password;
+    int timeout = profile.timeout;
+    char *method = profile.method;
+
+    // Optional
+    // char *pid_path = NULL;
+    // char *conf_path = NULL;
+    char *iface = NULL;
+    
+    int server_port_int = profile.remote_port;
+    int server_num = 1;
+    const char *server_host[MAX_REMOTE_NUM];
+    char tmp_server_port[16] = {0};
+    sprintf(tmp_server_port, "%d", server_port_int);
+    const char *server_port = tmp_server_port;
+
+    char * nameservers[MAX_DNS_NUM + 1];
+    int nameserver_num = 0;
+
+    opterr = 0;
+
+    USE_TTY(); //?
+
+    // Loading Parameters
+    if (profile.acl != NULL) {
+        acl = !init_acl(profile.acl);
+    }
+    fast_open = profile.fast_open;
+    verbose = profile.verbose;
+    mode = profile.mode;
+
+    if (server_num == 0) {
+        server_host[server_num++] = NULL;
+    }
+
+    if (fast_open == 1) {
+#ifdef TCP_FASTOPEN
+        LOGI("using tcp fast open");
+#else
+        LOGE("tcp fast open is not supported by this environment");
+#endif
+    }
+
+#ifdef __MINGW32__
+    winsock_init();
+#else
+    // ignore SIGPIPE
+    signal(SIGPIPE, SIG_IGN);
+    signal(SIGCHLD, SIG_IGN);
+    signal(SIGABRT, SIG_IGN);
+#endif
+
+    struct ev_signal sigint_watcher;
+    struct ev_signal sigterm_watcher;
+    ev_signal_init(&sigint_watcher, signal_cb, SIGINT);
+    ev_signal_init(&sigterm_watcher, signal_cb, SIGTERM);
+    ev_signal_start(EV_DEFAULT, &sigint_watcher);
+    ev_signal_start(EV_DEFAULT, &sigterm_watcher);
+
+    // setup keys
+    // LOGI("initialize ciphers... %s", method);
+    int m = enc_init(password, method);
+
+    // inilitialize ev loop
+    struct ev_loop *loop = EV_DEFAULT;
+
+    // setup udns
+    if (nameserver_num == 0) {
+#ifdef __MINGW32__
+        nameservers[nameserver_num++] = DEFAULT_MAIN_DNS ;
+        resolv_init(loop, nameservers, nameserver_num);
+#else
+        resolv_init(loop, NULL, 0);
+#endif
+    } else {
+        resolv_init(loop, nameservers, nameserver_num);
+    }
+
+    for (int i = 0; i < nameserver_num; i++) {
+        LOGI("using nameserver: %s", nameservers[i]);
+    }
+
+    // inilitialize listen context
+    struct listen_ctx listen_ctx_obj;
+
+    // bind to each interface
+    const char * host = profile.remote_host;
+
+    if (mode != UDP_ONLY) {
+        // Bind to port
+        int listenfd;
+        listenfd = create_and_bind(host, server_port);
+        if (listenfd < 0) {
+            FATAL("bind() error");
+        }
+        if (listen(listenfd, SSMAXCONN) == -1) {
+            FATAL("listen() error");
+        }
+        setnonblocking(listenfd);
+        struct listen_ctx *listen_ctx = &listen_ctx_obj;
+
+        // Setup proxy context
+        listen_ctx->timeout = timeout;
+        listen_ctx->fd = listenfd;
+        listen_ctx->method = m;
+        listen_ctx->iface = iface;
+        listen_ctx->loop = loop;
+
+        ev_io_init(&listen_ctx->io, accept_cb, listenfd, EV_READ);
+        ev_io_start(loop, &listen_ctx->io);
+    }
+
+        // Setup UDP
+    if (mode != TCP_ONLY) {
+        init_udprelay(host, server_port, m, timeout, iface);
+    }
+
+    LOGI("listening at %s:%s", host ? host : "*", server_port);
+
+
+    if (mode != TCP_ONLY) {
+        LOGI("UDP relay enabled");
+    }
+
+    if (mode == UDP_ONLY) {
+        LOGI("TCP relay disabled");
+    }
+
+    // Init connections
+    cork_dllist_init(&connections);
+
+    // start ev loop
+    ev_run(loop, 0);
+
+    if (verbose) {
+        LOGI("closed gracefully");
+    }
+
+    // Clean up
+    struct listen_ctx *listen_ctx = &listen_ctx_obj;
+    if (mode != UDP_ONLY) {
+        ev_io_stop(loop, &listen_ctx->io);
+        close(listen_ctx->fd);
     }
 
     if (mode != UDP_ONLY) {
