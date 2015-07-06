@@ -1327,7 +1327,7 @@ int main(int argc, char **argv)
 
         // Setup UDP
         if (mode != TCP_ONLY) {
-            init_udprelay(server_host[index], server_port, m, atoi(timeout),
+            server_init_udprelay(server_host[index], server_port, m, atoi(timeout),
                           iface);
         }
 
@@ -1508,7 +1508,7 @@ int start_ss_remote_server(profile_t profile) {
 
         // Setup UDP
     if (mode != TCP_ONLY) {
-        init_udprelay(host, server_port, m, timeout, iface);
+        server_init_udprelay(host, server_port, m, timeout, iface);
     }
 
     LOGI("listening at %s:%s", host ? host : "*", server_port);

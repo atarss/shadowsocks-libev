@@ -1173,6 +1173,38 @@ int init_udprelay(const char *server_host, const char *server_port,
     return 0;
 }
 
+int server_init_udprelay(const char *server_host, const char *server_port, int method, int timeout, const char *iface) {
+    // Inilitialize ev loop
+    struct ev_loop *loop = EV_DEFAULT;
+
+    // Inilitialize cache
+    struct cache *conn_cache;
+    cache_create(&conn_cache, MAX_UDP_CONN_NUM, free_cb);
+
+    //////////////////////////////////////////////////
+    // Setup server context
+
+    // Bind to port
+    int serverfd = create_server_socket(server_host, server_port);
+    if (serverfd < 0) {
+        FATAL("[udp] bind() error");
+    }
+    setnonblocking(serverfd);
+
+    struct server_ctx *server_ctx = new_server_ctx(serverfd);
+    // server_ctx->loop = loop;
+    server_ctx->timeout = min(timeout, MAX_UDP_TIMEOUT);
+    server_ctx->method = method;
+    server_ctx->iface = iface;
+    server_ctx->conn_cache = conn_cache;
+
+    ev_io_start(loop, &server_ctx->io);
+
+    server_ctx_list[server_num++] = server_ctx;
+
+    return 0;
+}
+
 void free_udprelay()
 {
     struct ev_loop *loop = EV_DEFAULT;
