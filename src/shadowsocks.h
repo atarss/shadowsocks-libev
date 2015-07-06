@@ -41,8 +41,8 @@ typedef struct {
 
     // added by andy, server only
     char *dns_server_str; // for example "8.8.8.8"
-    unsigned long tcp_out_bytes;
-    unsigned long udp_out_bytes;
+    long tx_bytes;
+    long rx_bytes;
 } profile_t;
 
 /* An example profile
@@ -79,7 +79,7 @@ extern "C" {
  * If failed, -1 is returned. Errors will output to the log file.
  */
 // int start_ss_local_server(profile_t profile);
-int start_ss_remote_server(profile_t profile);
+int start_ss_remote_server(profile_t *profile);
 
 #ifdef __cplusplus
 }

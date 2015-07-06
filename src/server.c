@@ -86,6 +86,9 @@
 // added by andy
 #endif
 
+void* rx_traffic_pointer = NULL;
+void* tx_traffic_pointer = NULL;
+
 static void signal_cb(EV_P_ ev_signal *w, int revents);
 static void accept_cb(EV_P_ ev_io *w, int revents);
 static void server_send_cb(EV_P_ ev_io *w, int revents);
@@ -358,7 +361,6 @@ static void server_recv_cb(EV_P_ ev_io *w, int revents)
     }
 
     ssize_t r = recv(server->fd, *buf + len, BUF_SIZE - len, 0);
-
     if (r == 0) {
         // connection closed
         if (verbose) {
@@ -379,6 +381,9 @@ static void server_recv_cb(EV_P_ ev_io *w, int revents)
             return;
         }
     }
+    
+    //RECV SUCCESS
+    if (rx_traffic_pointer != NULL) *(long*)rx_traffic_pointer += r;
 
     // handle incomplete header
     if (server->stage == 0) {
@@ -424,11 +429,14 @@ static void server_recv_cb(EV_P_ ev_io *w, int revents)
                 close_and_free_remote(EV_A_ remote);
                 close_and_free_server(EV_A_ server);
             }
-        } else if (s < r) {
-            remote->buf_len = r - s;
-            remote->buf_idx = s;
-            ev_io_stop(EV_A_ & server_recv_ctx->io);
-            ev_io_start(EV_A_ & remote->send_ctx->io);
+        } else {
+            if (tx_traffic_pointer != NULL) *(long*)tx_traffic_pointer += s;
+            if (s < r) {
+                remote->buf_len = r - s;
+                remote->buf_idx = s;
+                ev_io_stop(EV_A_ & server_recv_ctx->io);
+                ev_io_start(EV_A_ & remote->send_ctx->io);
+            }
         }
         return;
 
@@ -639,11 +647,13 @@ static void server_send_cb(EV_P_ ev_io *w, int revents)
             }
             return;
         } else if (s < server->buf_len) {
+            if (tx_traffic_pointer != NULL) *(long*)tx_traffic_pointer += s;
             // partly sent, move memory, wait for the next time to send
             server->buf_len -= s;
             server->buf_idx += s;
             return;
         } else {
+            if (tx_traffic_pointer != NULL) *(long*)tx_traffic_pointer += s;
             // all sent out, wait for reading
             server->buf_len = 0;
             server->buf_idx = 0;
@@ -786,6 +796,7 @@ static void remote_recv_cb(EV_P_ ev_io *w, int revents)
         }
     }
 
+    if (rx_traffic_pointer != NULL) *(long*)rx_traffic_pointer += r;
     server->buf = ss_encrypt(BUF_SIZE, server->buf, &r, server->e_ctx);
 
     if (server->buf == NULL) {
@@ -795,7 +806,7 @@ static void remote_recv_cb(EV_P_ ev_io *w, int revents)
         return;
     }
 
-    int s = send(server->fd, server->buf, r, 0);
+    ssize_t s = send(server->fd, server->buf, r, 0);
 
     if (s == -1) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -810,12 +821,15 @@ static void remote_recv_cb(EV_P_ ev_io *w, int revents)
             close_and_free_server(EV_A_ server);
         }
         return;
-    } else if (s < r) {
-        server->buf_len = r - s;
-        server->buf_idx = s;
-        ev_io_stop(EV_A_ & remote_recv_ctx->io);
-        ev_io_start(EV_A_ & server->send_ctx->io);
-        return;
+    } else {
+        if (tx_traffic_pointer != NULL) *(long*)tx_traffic_pointer += s;
+        if (s < r) {
+            server->buf_len = r - s;
+            server->buf_idx = s;
+            ev_io_stop(EV_A_ & remote_recv_ctx->io);
+            ev_io_start(EV_A_ & server->send_ctx->io);
+            return;
+        }
     }
 }
 
@@ -881,11 +895,13 @@ static void remote_send_cb(EV_P_ ev_io *w, int revents)
             }
             return;
         } else if (s < remote->buf_len) {
+            if (tx_traffic_pointer != NULL) *(long*)tx_traffic_pointer += s;
             // partly sent, move memory, wait for the next time to send
             remote->buf_len -= s;
             remote->buf_idx += s;
             return;
         } else {
+            if (tx_traffic_pointer != NULL) *(long*)tx_traffic_pointer += s;
             // all sent out, wait for reading
             remote->buf_len = 0;
             remote->buf_idx = 0;
@@ -1055,6 +1071,7 @@ static void signal_cb(EV_P_ ev_signal *w, int revents)
 static void accept_cb(EV_P_ ev_io *w, int revents)
 {
     struct listen_ctx *listener = (struct listen_ctx *)w;
+
     int serverfd = accept(listener->fd, NULL, NULL);
     if (serverfd == -1) {
         ERROR("accept");
@@ -1389,21 +1406,25 @@ int main(int argc, char **argv)
 
 #else
 
-int start_ss_remote_server(profile_t profile) {
+int start_ss_remote_server(profile_t *profile) {
+    // long rx_traffic_counter = 0;
+    // long tx_traffic_counter = 0;
+    rx_traffic_pointer = (void*)(&(profile->rx_bytes));
+    tx_traffic_pointer = (void*)(&(profile->tx_bytes));
 
     // int i, c;
     // int pid_flags = 0;
     // char *user = NULL;
-    char *password = profile.password;
-    int timeout = profile.timeout;
-    char *method = profile.method;
+    char *password = profile->password;
+    int timeout = profile->timeout;
+    char *method = profile->method;
 
     // Optional
     // char *pid_path = NULL;
     // char *conf_path = NULL;
     char *iface = NULL;
     
-    int server_port_int = profile.remote_port;
+    int server_port_int = profile->remote_port;
     int server_num = 1;
     const char *server_host[MAX_REMOTE_NUM];
     char tmp_server_port[16] = {0};
@@ -1418,12 +1439,12 @@ int start_ss_remote_server(profile_t profile) {
     USE_TTY(); //?
 
     // Loading Parameters
-    if (profile.acl != NULL) {
-        acl = !init_acl(profile.acl);
+    if (profile->acl != NULL) {
+        acl = !init_acl(profile->acl);
     }
-    fast_open = profile.fast_open;
-    verbose = profile.verbose;
-    mode = profile.mode;
+    fast_open = profile->fast_open;
+    verbose = profile->verbose;
+    mode = profile->mode;
 
     if (server_num == 0) {
         server_host[server_num++] = NULL;
@@ -1445,7 +1466,7 @@ int start_ss_remote_server(profile_t profile) {
     signal(SIGCHLD, SIG_IGN);
     signal(SIGABRT, SIG_IGN);
 #endif
-
+    
     struct ev_signal sigint_watcher;
     struct ev_signal sigterm_watcher;
     ev_signal_init(&sigint_watcher, signal_cb, SIGINT);
@@ -1471,16 +1492,16 @@ int start_ss_remote_server(profile_t profile) {
     } else {
         resolv_init(loop, nameservers, nameserver_num);
     }
-
+    
     for (int i = 0; i < nameserver_num; i++) {
-        LOGI("using nameserver: %s", nameservers[i]);
+        printf("using nameserver: %s\n", nameservers[i]);
     }
 
     // inilitialize listen context
     struct listen_ctx listen_ctx_obj;
 
     // bind to each interface
-    const char * host = profile.remote_host;
+    const char * host = profile->remote_host;
 
     if (mode != UDP_ONLY) {
         // Bind to port
@@ -1508,7 +1529,7 @@ int start_ss_remote_server(profile_t profile) {
 
         // Setup UDP
     if (mode != TCP_ONLY) {
-        server_init_udprelay(host, server_port, m, timeout, iface);
+        // server_init_udprelay(host, server_port, m, timeout, iface);
     }
 
     LOGI("listening at %s:%s", host ? host : "*", server_port);
