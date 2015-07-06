@@ -1,3 +1,7 @@
+This fork of shadowsocks-libev replace `start_ss_local_server` with `start_ss_remote_server` in libshadowsocks
+TODO : Add traffic statistics.
+
+
 shadowsocks-libev
 =================
 
