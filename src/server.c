@@ -79,10 +79,12 @@
 #define SSMAXCONN 1024
 #endif
 
+#ifdef LIB_ONLY
 #define DEFAULT_MAIN_DNS "8.8.8.8"
 #include <pthread.h>
 #include "shadowsocks.h"
 // added by andy
+#endif
 
 static void signal_cb(EV_P_ ev_signal *w, int revents);
 static void accept_cb(EV_P_ ev_io *w, int revents);
@@ -1075,6 +1077,7 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
     ev_timer_start(EV_A_ & server->recv_ctx->watcher);
 }
 
+#ifndef LIB_ONLY
 int main(int argc, char **argv)
 {
 
@@ -1384,6 +1387,8 @@ int main(int argc, char **argv)
     return 0;
 }
 
+#else
+
 int start_ss_remote_server(profile_t profile) {
 
     // int i, c;
@@ -1553,3 +1558,5 @@ int start_ss_remote_server(profile_t profile) {
 
     return 0;
 }
+
+#endif
