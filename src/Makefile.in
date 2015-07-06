@@ -115,7 +115,7 @@ am__DEPENDENCIES_3 = $(am__DEPENDENCIES_2) \
 	$(top_builddir)/libudns/libudns.la
 libshadowsocks_la_DEPENDENCIES = $(am__DEPENDENCIES_3)
 am__libshadowsocks_la_SOURCES_DIST = utils.c jconf.c json.c encrypt.c \
-	udprelay.c cache.c acl.c netutils.c local.c win32.c
+	udprelay.c cache.c acl.c netutils.c local.c win32.c resolv.c
 @BUILD_WINCOMPAT_TRUE@am__objects_1 = libshadowsocks_la-win32.lo
 am__objects_2 = libshadowsocks_la-utils.lo libshadowsocks_la-jconf.lo \
 	libshadowsocks_la-json.lo libshadowsocks_la-encrypt.lo \
@@ -400,10 +400,10 @@ ss_server_CFLAGS = $(AM_CFLAGS) -DUDPRELAY_REMOTE
 @BUILD_REDIRECTOR_TRUE@ss_redir_LDADD = $(SS_COMMON_LIBS) \
 @BUILD_REDIRECTOR_TRUE@	$(top_builddir)/libudns/libudns.la
 lib_LTLIBRARIES = libshadowsocks.la
-libshadowsocks_la_SOURCES = $(ss_local_SOURCES)
-libshadowsocks_la_CFLAGS = $(ss_local_CFLAGS) -DLIB_ONLY
+libshadowsocks_la_SOURCES = $(ss_server_SOURCES)
+libshadowsocks_la_CFLAGS = $(ss_server_CFLAGS) -DLIB_ONLY
 libshadowsocks_la_LDFLAGS = -version-info $(VERSION_INFO)
-libshadowsocks_la_LIBADD = $(ss_local_LDADD)
+libshadowsocks_la_LIBADD = $(ss_server_LDADD)
 include_HEADERS = shadowsocks.h
 all: all-am
 

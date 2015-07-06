@@ -82,8 +82,8 @@ ss_redir_LDADD += $(top_builddir)/libudns/libudns.la
 endif
 
 lib_LTLIBRARIES = libshadowsocks.la
-libshadowsocks_la_SOURCES = $(ss_local_SOURCES) $(ss_server_SOURCES)
+libshadowsocks_la_SOURCES = $(ss_server_SOURCES)
 libshadowsocks_la_CFLAGS = $(ss_server_CFLAGS) -DLIB_ONLY
 libshadowsocks_la_LDFLAGS = -version-info $(VERSION_INFO)
-libshadowsocks_la_LIBADD = $(ss_local_LDADD) $(ss_server_LDADD)
+libshadowsocks_la_LIBADD = $(ss_server_LDADD)
 include_HEADERS = shadowsocks.h
